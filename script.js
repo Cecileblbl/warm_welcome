@@ -68,12 +68,14 @@ let recordedChunks = [];
 
 function startRecording() {
   recordedChunks = []; // Reset the recorded chunks
-
+  console.log("start recording function triggered")
   navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
     mediaRecorder = new MediaRecorder(stream);
+    console.log("audio access activated")
 
     mediaRecorder.addEventListener("dataavailable", function (event) {
       recordedChunks.push(event.data);
+      console.log("recording chunks")
     });
 
     mediaRecorder.start();
@@ -82,7 +84,7 @@ function startRecording() {
 
 function stopRecording() {
   mediaRecorder.stop();
-
+  console.log("stop recording function triggered")
   const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
   const audioUrl = URL.createObjectURL(audioBlob);
 
@@ -121,6 +123,7 @@ app.get("/oauth2callback", async (req, res) => {
 });
 
 app.post('/sendemail', upload.none(), async (req, res) => {
+  console.log("send email triggered")
   tokens = req.cookies.token;
   const object_tokens = JSON.parse(tokens);
 
