@@ -1,5 +1,6 @@
 const { google } = require("googleapis");
 const fs = require("fs");
+const mainscript = require("./main.js");
 const SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
 const CREDENTIALS_FOLDER = "./";
 /* GLOBAL VARIABLES*/
@@ -62,46 +63,66 @@ const { Base64 } = require("js-base64");
 
 app.use(cookieParser());
 
-//Recording stuff
-let mediaRecorder;
-let recordedChunks = [];
+// //Recording stuff
+// let mediaRecorder;
+// let recordedChunks = [];
 
-function startRecording() {
-  recordedChunks = []; // Reset the recorded chunks
-  console.log("start recording function triggered")
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-    mediaRecorder = new MediaRecorder(stream);
-    console.log("audio access activated")
+// function startRecording() {
+//   recordedChunks = []; // Reset the recorded chunks
+//   console.log("start recording function triggered")
+//   navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+//     mediaRecorder = new MediaRecorder(stream);
+//     console.log("audio access activated")
 
-    mediaRecorder.addEventListener("dataavailable", function (event) {
-      recordedChunks.push(event.data);
-      console.log("recording chunks")
-    });
+//     mediaRecorder.addEventListener("dataavailable", function (event) {
+//       recordedChunks.push(event.data);
+//       console.log("recording chunks")
+//     });
 
-    mediaRecorder.start();
-  });
-}
+//     mediaRecorder.start();
+//   });
+// }
 
-function stopRecording() {
-  mediaRecorder.stop();
-  console.log("stop recording function triggered")
-  const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
-  const audioUrl = URL.createObjectURL(audioBlob);
+// function stopRecording() {
+//   mediaRecorder.stop();
+//   console.log("stop recording function triggered")
+//   const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
+//   const audioUrl = URL.createObjectURL(audioBlob);
 
-  const audioBlobInput = document.getElementById("audioBlob");
-  audioBlobInput.value = audioUrl;
-}
+//   const audioBlobInput = document.getElementById("audioBlob");
+//   audioBlobInput.value = audioUrl;
+// }
+
+app.get("/startrecording", (req, res) => {
+  startRecording();
+  res.sendStatus(200);
+});
+
+app.get("/stoprecording", (req, res) => {
+  stopRecording();
+  res.sendStatus(200);
+});
 
 
 app.get('/', (req, res) => {
   if (req.cookies.token) {
-    const http = 
-    `<button onclick="startRecording()">Start Recording</button>
-    <button onclick="stopRecording()">Stop Recording</button>
-    <form action="/sendemail" method="post" enctype="multipart/form-data">
-      <input type="hidden" name="audioBlob" id="audioBlob" />
-      <button type="submit">Send</button>
-    </form>`
+    const http = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Recording Example</title>
+        </head>
+        <body>
+          <button onclick="startRecording()">Start Recording</button>
+          <button onclick="stopRecording()">Stop Recording</button>
+          <form action="/sendemail" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="audioBlob" id="audioBlob" />
+            <button type="submit">Send</button>
+          </form>
+          <script src="main.js"></script>
+        </body>
+      </html>
+    `;
     res.send(http);
   } else {
     // The user is not authenticated.
