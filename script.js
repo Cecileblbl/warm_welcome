@@ -1,60 +1,179 @@
-const { google } = require('googleapis');
-const express = require('express');
-const multer = require('multer');
-const keys = require('C:\\Users\\Cecib\\Desktop\\finalproject\\Website\\api\\id.json')
+const { google }         = require('googleapis');
+const fs                 = require('fs');
+const SCOPES             = ['https://www.googleapis.com/auth/gmail.send'];
+const CREDENTIALS_FOLDER = './';
+/* GLOBAL VARIABLES*/
+let credentials, authUrl;
 
-const app = express();
-const upload = multer();
+// ----------  OAUTH2 CLIENT ----------------
+// Credentials files is open and validated
+try {
+  const files = fs.readdirSync(CREDENTIALS_FOLDER);
+  const credentialsFile = files
+    .find(file => file.startsWith('client_secret_') && file.endsWith('.json'));
 
-// Configure OAuth2 credentials
-const oauth2Client = new google.auth.OAuth2(
-  keys.client_id,
-  keys.client_secret,
-  keys.auth_uri
-);
+  if (!credentialsFile) throw new Error('credentials file not found');
 
-// Generate the URL for user consent
-const scopes = ['https://www.googleapis.com/auth/gmail.send'];
-const authUrl = oauth2Client.generateAuthUrl({
-  access_type: 'offline',
-  scope: scopes,
+  const credentialsPath = CREDENTIALS_FOLDER + credentialsFile;
+  const file = fs.readFileSync(credentialsPath)
+  credentials = JSON.parse(file);
+} catch (error) {
+  console.log("unable to read file");
+}
+const REQUIRED_CREDENTIALS_PROPERTIES = [
+  'client_id',
+  'project_id',
+  'auth_uri',
+  'auth_provider_x509_cert_url',
+  'token_uri',
+  'client_secret',
+  'redirect_uris'
+];
+if (credentials && credentials.installed) Object.keys(credentials.installed).forEach(key => {
+  if (!REQUIRED_CREDENTIALS_PROPERTIES.includes(key)) throw  new Error('invalid credentials');
 });
 
-// Handle the OAuth2 callback
+const { installed: { client_id, client_secret, redirect_uris } } = credentials;
+const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris[0]);
+
+
+// If token exists, use it
+authUrl = oAuth2Client.generateAuthUrl({
+  access_type: 'offline',
+  scope: SCOPES
+})
+
+// ----------  EXPRESS APPLICATION  ----------------
+const express      = require('express');
+const multer       = require('multer');
+const upload       = multer({dest:'uploads/'});
+const app          = express();
+const cookieParser = require('cookie-parser');
+const { Base64 }   = require('js-base64');
+
+app.use(cookieParser());
+
+//replace with your stuff 
+app.get('/', (req, res) => {
+  // res.send(`<a href="${authUrl}">Authorize Gmail API</a>`);
+  if (req.cookies.token) {
+    const http = 
+    `<form action="/sendemail" method="post" enctype="multipart/form-data">
+      <input type="file" name="audio" />
+      <button type="submit">Send</button>
+    </form>`
+    res.send(http);
+  } else {
+    // The user is not authenticated.
+    res.send(`<a href="${authUrl}">Authorize Gmail API</a>`);
+  }
+});
+let tokens;
 app.get('/oauth2callback', async (req, res) => {
   const { code } = req.query;
-  const { tokens } = await oauth2Client.getToken(code);
-
-  oauth2Client.setCredentials(tokens);
-
-  // Continue with sending the email or store the tokens for later use
-
+  const  object_tokens  = await  oAuth2Client.getToken(code)
+  tokens = object_tokens.tokens;
+  res.cookie('token', JSON.stringify(tokens), {
+    maxAge: 900000, 
+    httpOnly: true 
+    // secure: true // UNCOMMENT THIS FOR HTTPS IN PRODUCTION
+  });
+  oAuth2Client.setCredentials(tokens);
   res.redirect('/');
 });
 
-app.post('/send-email', upload.single('audio'), async (req, res) => {
-  const { buffer, originalname } = req.file;
+app.post('/sendemail', upload.single('audio'), async (req, res) => {
+  tokens = req.cookies.token;
+  const object_tokens = JSON.parse(tokens);
+  const { 
+    originalname,
+    mimetype,
+    filename,
+    destination,
+  } = req.file;
 
-  const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
-
-  const encodedEmail = Buffer.from(buffer).toString('base64');
-
-  const message = await gmail.users.messages.send({
+  const raw = makeBody(
+    'shockerovip@gmail.com', 
+    'shockerovip@gmail.com', 
+    'Your subject here4', 
+    'Your message here', 
+    destination + filename,
+    originalname,
+    mimetype,
+  );
+  const encodedEmail = Base64.encodeURI(raw);
+  oAuth2Client.setCredentials(object_tokens);
+  const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
+  const { data } = await gmail.users.messages.send({
     userId: 'me',
     requestBody: {
-      raw: encodedEmail,
-    },
+      raw: encodedEmail
+    }
   });
 
-  console.log('Message sent:', message.data);
+  res.send('success');
+}) ;
 
-  res.sendStatus(200);
+function notFound(req, res, next) {
+  res.status(404);
+  const error = new Error('Not Found - ' + req.originalUrl);
+  next(error);
+}
+
+function errorHandler(err, req, res, next) {
+  res.status(res.statusCode || 500);
+  res.json({
+    message: err.message,
+    stack: err.stack
+  });
+}
+
+app.use(notFound);
+app.use(errorHandler);
+
+// gets the localhost IP address
+var interfaces = require('os').networkInterfaces(), localhostIP;
+for (var k in interfaces) {
+    for (var k2 in interfaces[k]) {
+        let ipFamily = interfaces[k][k2].family;
+       if ( ipFamily === 'IPv4' || ipFamily === 4 && !interfaces[k][k2].internal) {
+          localhostIP = interfaces[k][k2].address;
+       }
+   }
+}
+
+const port = process.env.PORT || 5000;
+
+app.listen(port, () => {
+    console.log(`Listening on http://${localhostIP}:${port}`);
 });
 
-app.get('/', (req, res) => {
-  res.send(`<a href="${authUrl}">Authorize Gmail API</a>`);
-});
 
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
+function makeBody(to, from, subject, message, filePath, filename, mimetype) {
+    const boundary = "foo_bar_baz";
+    let mail = [
+        "MIME-Version: 1.0",
+        "To: " + to,
+        "From: " + from,
+        "Subject: " + subject,
+        "Content-Type: multipart/mixed; boundary=" + boundary,
+        "",
+        "--" + boundary,
+        "Content-Type: text/plain; charset=UTF-8",
+        "Content-Transfer-Encoding: 7bit",
+        "",
+        message,
+        "",
+        "--" + boundary,
+        "Content-Type: " + mimetype,
+        "Content-Transfer-Encoding: base64",
+        "Content-Disposition: attachment; filename=" + filename,
+        "",
+        fs.readFileSync(filePath, { encoding: 'base64' }),
+        "",
+        "--" + boundary + "--",
+        "",
+    ].join("\r\n");
+
+    return mail;
+}
