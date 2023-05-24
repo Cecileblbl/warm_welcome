@@ -1,6 +1,5 @@
 const { google } = require("googleapis");
 const fs = require("fs");
-const mainscript = require("./main.js");
 const SCOPES = ["https://www.googleapis.com/auth/gmail.send"];
 const CREDENTIALS_FOLDER = "./";
 /* GLOBAL VARIABLES*/
@@ -63,95 +62,48 @@ const { Base64 } = require("js-base64");
 
 app.use(cookieParser());
 
-// //Recording stuff
-// let mediaRecorder;
-// let recordedChunks = [];
-
-// function startRecording() {
-//   recordedChunks = []; // Reset the recorded chunks
-//   console.log("start recording function triggered")
-//   navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
-//     mediaRecorder = new MediaRecorder(stream);
-//     console.log("audio access activated")
-
-//     mediaRecorder.addEventListener("dataavailable", function (event) {
-//       recordedChunks.push(event.data);
-//       console.log("recording chunks")
-//     });
-
-//     mediaRecorder.start();
-//   });
-// }
-
-// function stopRecording() {
-//   mediaRecorder.stop();
-//   console.log("stop recording function triggered")
-//   const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
-//   const audioUrl = URL.createObjectURL(audioBlob);
-
-//   const audioBlobInput = document.getElementById("audioBlob");
-//   audioBlobInput.value = audioUrl;
-// }
-
-app.get("/startrecording", (req, res) => {
-  startRecording();
-  res.sendStatus(200);
-});
-
-app.get("/stoprecording", (req, res) => {
-  stopRecording();
-  res.sendStatus(200);
-});
-
 
 app.get('/', (req, res) => {
   if (req.cookies.token) {
-    const http = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Recording Example</title>
-      </head>
-      <body>
-        <button id="startRecordingButton">Start Recording</button>
-        <button id="stopRecordingButton">Stop Recording</button>
-        <form action="/sendemail" method="post" enctype="multipart/form-data">
-          <input type="hidden" name="audioBlob" id="audioBlob" />
-          <button type="submit">Send</button>
-        </form>
-        <script>
-          // Attach event listeners to the buttons
-          document.getElementById("startRecordingButton").addEventListener("click", () => {
-            fetch("/startrecording")
-              .then((response) => {
-                if (response.ok) {
-                  console.log("Start recording request sent successfully");
-                } else {
-                  console.error("Failed to send start recording request");
-                }
-              })
-              .catch((error) => {
-                console.error("Error sending start recording request:", error);
-              });
-          });
-          
-          document.getElementById("stopRecordingButton").addEventListener("click", () => {
-            fetch("/stoprecording")
-              .then((response) => {
-                if (response.ok) {
-                  console.log("Stop recording request sent successfully");
-                } else {
-                  console.error("Failed to send stop recording request");
-                }
-              })
-              .catch((error) => {
-                console.error("Error sending stop recording request:", error);
-              });
-          });
-        </script>
-      </body>
-    </html>
-    `;
+    const http = 
+    `
+    <script> 
+    //Recording stuff
+let mediaRecorder;
+let recordedChunks = [];
+
+function startRecording() {
+  recordedChunks = []; // Reset the recorded chunks
+  console.log("start recording function triggered")
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+    mediaRecorder = new MediaRecorder(stream);
+    console.log("audio access activated")
+
+    mediaRecorder.addEventListener("dataavailable", function (event) {
+      recordedChunks.push(event.data);
+      console.log("recording chunks")
+    });
+
+    mediaRecorder.start();
+  });
+}
+
+function stopRecording() {
+  mediaRecorder.stop();
+  console.log("stop recording function triggered")
+  const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
+  const audioUrl = URL.createObjectURL(audioBlob);
+
+  const audioBlobInput = document.getElementById("audioBlob");
+  audioBlobInput.value = audioUrl;
+}
+</script>
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="stopRecording()">Stop Recording</button>
+    <form action="/sendemail" method="post" enctype="multipart/form-data">
+      <input type="hidden" name="audioBlob" id="audioBlob" />
+      <button type="submit">Send</button>
+    </form>`
     res.send(http);
   } else {
     // The user is not authenticated.
