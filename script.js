@@ -93,6 +93,8 @@ function stopRecording() {
   console.log("stop recording function triggered")
   const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
   const audioUrl = URL.createObjectURL(audioBlob);
+  console.log("This is the audioblob" + audioBlob)
+  console.log("this is the url" + (audioUrl))
 
   const audioBlobInput = document.getElementById("audioBlob");
   audioBlobInput.value = audioUrl;
@@ -124,18 +126,14 @@ app.get("/oauth2callback", async (req, res) => {
   res.redirect("/");
 });
 
-app.post('/sendemail', upload.none(), async (req, res) => {
-  console.log("send email triggered")
+app.post('/sendemail', upload.single('audio'), async (req, res) => {
   tokens = req.cookies.token;
   const object_tokens = JSON.parse(tokens);
-
-  const audioBlobUrl = req.body.audioBlob;
-  console.log("audioBlobUrl:", audioBlobUrl);
-  const audioBlob = await fetch(audioBlobUrl).then((response) => response.blob());
-
   const { 
     originalname,
     mimetype,
+    filename,
+    destination,
   } = req.file;
 
   const raw = makeBody(
@@ -143,7 +141,7 @@ app.post('/sendemail', upload.none(), async (req, res) => {
     'thisisfromwarmwelcome@gmail.com', 
     'Your subject here', 
     'Your message here', 
-    audioBlob,
+    destination + filename,
     originalname,
     mimetype,
   );
@@ -159,6 +157,7 @@ app.post('/sendemail', upload.none(), async (req, res) => {
 
   res.send('success');
 }) ;
+
 
 
 function notFound(req, res, next) {
