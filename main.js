@@ -27,32 +27,3 @@ function stopRecording() {
   const audioBlobInput = document.getElementById("audioBlob");
   audioBlobInput.value = audioUrl;
 }
-
-    document.getElementById("startRecordingButton").addEventListener("click", () => {
-      fetch("/startrecording")
-        .then((response) => {
-          if (response.ok) {
-            console.log("Start recording request sent successfully");
-          } else {
-            console.error("Failed to send start recording request");
-          }
-        })
-        .catch((error) => {
-          console.error("Error sending start recording request:", error);
-        });
-    });
-    
-    document.getElementById("stopRecordingButton").addEventListener("click", () => {
-      fetch("/stoprecording")
-        .then((response) => {
-          if (response.ok) {
-            console.log("Stop recording request sent successfully");
-          } else {
-            console.error("Failed to send stop recording request");
-          }
-        })
-        .catch((error) => {
-          console.error("Error sending stop recording request:", error);
-        });
-    });
-    
