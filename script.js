@@ -71,6 +71,7 @@ app.get('/', (req, res) => {
     //Recording stuff
 let mediaRecorder;
 let recordedChunks = [];
+let audioBlob;
 
 function startRecording() {
   recordedChunks = []; // Reset the recorded chunks
@@ -91,7 +92,7 @@ function startRecording() {
 function stopRecording() {
   mediaRecorder.stop();
   console.log("stop recording function triggered")
-  const audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
+  audioBlob = new Blob(recordedChunks, { type: "audio/wav" });
   const audioUrl = URL.createObjectURL(audioBlob);
   console.log("This is the audioblob" + audioBlob)
   console.log("this is the url" + (audioUrl))
@@ -99,10 +100,34 @@ function stopRecording() {
   const audioBlobInput = document.getElementById("audioBlob");
   audioBlobInput.value = audioUrl;
 }
+function SubmitForm() {
+  var form = document.getElementById("audioForm")
+
+  // get all other field in the form
+  var fd = new FormData(form)
+  // or start of with a empty form
+  var fd = new FormData()
+  
+  // append the needed blob to the formdata
+  fd.append('hidden_field', audioBlob, 'filename.txt')
+  
+  fetch("/sendemail", {
+    method: "post",
+    body: fd
+  }).then(function(res) {
+    if (!res.ok) {
+      console.log('something unexpected happened')
+    }
+    res.text().then(function(text) {
+      // navigate to forms action page
+      // location.href = form.action
+    })
+  })
+}
 </script>
     <button onclick="startRecording()">Start Recording</button>
     <button onclick="stopRecording()">Stop Recording</button>
-    <form action="/sendemail" method="post" enctype="multipart/form-data">
+    <form id="audioForm" onsubmit="SubmitForm" enctype="multipart/form-data">
       <input type="hidden" name="audioBlob" id="audioBlob" />
       <button type="submit">Send</button>
     </form>`
@@ -120,21 +145,24 @@ app.get("/oauth2callback", async (req, res) => {
   res.cookie("token", JSON.stringify(tokens), {
     maxAge: 900000,
     httpOnly: true,
-    // secure: true // UNCOMMENT THIS FOR HTTPS IN PRODUCTION
+    // secure: true // FOR HTTPS
   });
   oAuth2Client.setCredentials(tokens);
   res.redirect("/");
 });
 
 app.post('/sendemail', upload.single('audio'), async (req, res) => {
+  console.log("send email function triggered");
   tokens = req.cookies.token;
   const object_tokens = JSON.parse(tokens);
-  const { 
+  console.log("object_tokens = " + object_tokens);
+  const {
     originalname,
     mimetype,
     filename,
     destination,
   } = req.file;
+  console.log("req.file = " + req.file)
 
   const raw = makeBody(
     'thisisfromwarmwelcome@gmail.com', 
